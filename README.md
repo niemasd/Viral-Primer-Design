@@ -9,4 +9,4 @@ wget -O data/consensus_sequences_YYYY-MM-DD.fasta.gz "https://github.com/anderse
 ```
 
 # Step 2: Multiple Sequence Alignment
-I will be using [ViralMSA](https://github.com/niemasd/ViralMSA) ([Moshiri *et al*., 2021](https://doi.org/10.1093/bioinformatics/btaa743)) to perform reference-guided Multiple Sequence Alignment.
+I will be using [ViralMSA](https://github.com/niemasd/ViralMSA) ([Moshiri *et al*., 2021](https://doi.org/10.1093/bioinformatics/btaa743)) wrapping around [Minimap2](https://github.com/lh3/minimap2) ([Li *et al*., 2018](https://doi.org/10.1093/bioinformatics/bty191)) to perform reference-guided Multiple Sequence Alignment.
