@@ -17,3 +17,10 @@ ViralMSA.py -s data/consensus_sequences_*.fasta -r SARS-CoV-2 -e niemamoshiri@gm
 pigz -9 -p 8 data/viralmsa_out/*.aln data/viralmsa_out/*.sam
 rm data/consensus_sequences_*.fasta.gz
 ```
+
+# Step 3: Shannon Entropy
+I wrote a [script to compute Shannon Entropy](scripts/entropy.py), which takes a Multiple Sequence Alignment (one-line FASTA) via standard input and prints a TSV containing the Shannon Entropy at each position of the reference genome to standard output:
+
+```bash
+zcat data/viralmsa_out/*.aln.gz | ./scripts/entropy.py > data/entropy_2022-07-22.tsv
+```
