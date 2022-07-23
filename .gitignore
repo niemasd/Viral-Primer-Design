@@ -1,3 +1,8 @@
+# uncompressed FASTA/SAM
+*.fa
+*.fasta
+*.sam
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
