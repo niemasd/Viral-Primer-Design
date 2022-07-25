@@ -18,9 +18,9 @@ pigz -9 -p 8 data/sarscov2/viralmsa_out/*.aln data/sarscov2/viralmsa_out/*.sam
 rm data/consensus_sequences_*.fasta.gz
 ```
 
-# Step 3: Shannon Entropy
-I wrote a [script to compute Shannon Entropy](scripts/entropy.py), which takes a Multiple Sequence Alignment (one-line FASTA) via standard input and prints a TSV containing the Shannon Entropy at each position of the reference genome to standard output:
+# Step 3: Conserved Regions
+I wrote a [script (`conserved.py`)](scripts/conserved.py) to compute the maximum base frequency and Shannon Entropy at every position of the reference genome. It takes a Multiple Sequence Alignment (one-line FASTA) via standard input and prints a TSV to standard output:
 
 ```bash
-zcat data/sarscov2/viralmsa_out/*.aln.gz | ./scripts/entropy.py > data/sarscov2/entropy_2022-07-22.tsv
+zcat data/sarscov2/viralmsa_out/*.aln.gz | ./scripts/conserved.py > data/sarscov2/conserved_2022-07-22.tsv
 ```
