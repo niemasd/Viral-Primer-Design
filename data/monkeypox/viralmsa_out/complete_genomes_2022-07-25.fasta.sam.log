@@ -1,0 +1,8 @@
+[M::main::0.004*1.22] loaded/built the index for 1 target sequence(s)
+[M::mm_mapopt_update::0.005*1.17] mid_occ = 10
+[M::mm_idx_stat] kmer size: 15; skip: 10; is_hpc: 0; #seq: 1
+[M::mm_idx_stat::0.006*1.16] distinct minimizers: 35546 (96.57% are singletons); average occurrences: 1.038; average spacing: 5.347; total length: 197209
+[M::worker_pipeline::10.686*7.77] mapped 594 sequences
+[M::main] Version: 2.24-r1122
+[M::main] CMD: minimap2 -t 8 --score-N=0 --secondary=no --sam-hit-only -a -o /home/niema/Viral-Primer-Design/data/monkeypox/viralmsa_out/complete_genomes_2022-07-25.fasta.sam /home/niema/.viralmsa/NC_063383/NC_063383.fas.mmi /home/niema/Viral-Primer-Design/data/monkeypox/complete_genomes_2022-07-25.fasta
+[M::main] Real time: 10.688 sec; CPU: 83.051 sec; Peak RSS: 0.426 GB

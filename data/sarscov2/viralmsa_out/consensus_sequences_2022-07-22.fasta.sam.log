@@ -1,0 +1,12 @@
+[M::main::0.002*1.52] loaded/built the index for 1 target sequence(s)
+[M::mm_mapopt_update::0.002*1.45] mid_occ = 10
+[M::mm_idx_stat] kmer size: 15; skip: 10; is_hpc: 0; #seq: 1
+[M::mm_idx_stat::0.002*1.40] distinct minimizers: 5587 (99.93% are singletons); average occurrences: 1.004; average spacing: 5.332; total length: 29903
+[M::worker_pipeline::29.982*7.75] mapped 16733 sequences
+[M::worker_pipeline::71.104*7.89] mapped 16735 sequences
+[M::worker_pipeline::116.307*7.93] mapped 16729 sequences
+[M::worker_pipeline::156.838*7.94] mapped 16729 sequences
+[M::worker_pipeline::177.448*7.94] mapped 8344 sequences
+[M::main] Version: 2.24-r1122
+[M::main] CMD: minimap2 -t 8 --score-N=0 --secondary=no --sam-hit-only -a -o /home/niema/SARS-CoV-2-Primer-Design/data/viralmsa_out/consensus_sequences_2022-07-22.fasta.sam /home/niema/.viralmsa/NC_045512/NC_045512.fas.mmi /home/niema/SARS-CoV-2-Primer-Design/data/consensus_sequences_2022-07-22.fasta
+[M::main] Real time: 177.512 sec; CPU: 1408.517 sec; Peak RSS: 3.884 GB

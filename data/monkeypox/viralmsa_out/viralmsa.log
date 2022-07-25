@@ -1,0 +1,24 @@
+[2022-07-25 13:44:29] ===== RUN INFORMATION =====
+[2022-07-25 13:44:29] ViralMSA Version: 1.1.22
+[2022-07-25 13:44:29] Sequences: /home/niema/Viral-Primer-Design/data/monkeypox/complete_genomes_2022-07-25.fasta
+[2022-07-25 13:44:29] Reference: NC_063383
+[2022-07-25 13:44:29] Email Address: niemamoshiri@gmail.com
+[2022-07-25 13:44:29] Output Directory: /home/niema/Viral-Primer-Design/data/monkeypox/viralmsa_out
+[2022-07-25 13:44:29] Aligner: minimap2
+[2022-07-25 13:44:29] ViralMSA Cache Directory: /home/niema/.viralmsa
+[2022-07-25 13:44:29] 
+[2022-07-25 13:44:29] ===== REFERENCE GENOME =====
+[2022-07-25 13:44:29] Downloading reference genome from NCBI...
+[2022-07-25 13:44:29] Reference genome downloaded: /home/niema/.viralmsa/NC_063383/NC_063383.fas
+[2022-07-25 13:44:29] Building Minimap2 index: minimap2 -t 8 -d /home/niema/.viralmsa/NC_063383/NC_063383.fas.mmi /home/niema/.viralmsa/NC_063383/NC_063383.fas
+[2022-07-25 13:44:29] Minimap2 index built: /home/niema/.viralmsa/NC_063383/NC_063383.fas.mmi
+[2022-07-25 13:44:29] 
+[2022-07-25 13:44:29] ===== ALIGNMENT =====
+[2022-07-25 13:44:29] Aligning using Minimap2: minimap2 -t 8 --score-N=0 --secondary=no --sam-hit-only -a -o /home/niema/Viral-Primer-Design/data/monkeypox/viralmsa_out/complete_genomes_2022-07-25.fasta.sam /home/niema/.viralmsa/NC_063383/NC_063383.fas.mmi /home/niema/Viral-Primer-Design/data/monkeypox/complete_genomes_2022-07-25.fasta
+[2022-07-25 13:44:40] Minimap2 alignment complete: /home/niema/Viral-Primer-Design/data/monkeypox/viralmsa_out/complete_genomes_2022-07-25.fasta.sam
+[2022-07-25 13:44:40] Converting alignment to FASTA...
+[2022-07-25 13:44:40] Multiple sequence alignment complete: /home/niema/Viral-Primer-Design/data/monkeypox/viralmsa_out/complete_genomes_2022-07-25.fasta.aln
+[2022-07-25 13:44:40] 
+[2022-07-25 13:44:40] ===== CITATIONS =====
+[2022-07-25 13:44:40] ViralMSA: Moshiri N (2021). "ViralMSA: Massively scalable reference-guided multiple sequence alignment of viral genomes." Bioinformatics. 37(5):714–716. doi:10.1093/bioinformatics/btaa743
+[2022-07-25 13:44:40] Minimap2: Li H (2018). "Minimap2: pairwise alignment for nucleotide sequences." Bioinformatics. 34(18):3094-3100. doi:10.1093/bioinformatics/bty191
