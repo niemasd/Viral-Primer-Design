@@ -1,8 +1,8 @@
-# SARS-CoV-2-Primer-Design
-Niema's scripts/data for designing SARS-CoV-2 primers
+# Viral Primal Design
+Niema's scripts/data for designing viral primers (e.g. SARS-CoV-2 and Monkeypox).
 
 # Step 1: Data Acquisition
-I will be using the [consensus sequences](https://github.com/andersen-lab/HCoV-19-Genomics/tree/master/consensus_sequences) from the [Andersen lab](https://andersen-lab.com/)'s [HCoV-19-Genomics GitHub repo](https://github.com/andersen-lab/HCoV-19-Genomics). There are a *lot* of consensus sequences, each in a separate FASTA file, so `git clone` would be slow. Instead, we can download them and merge them into a single FASTA as follows:
+For SARS-CoV-2, I will be using the [consensus sequences](https://github.com/andersen-lab/HCoV-19-Genomics/tree/master/consensus_sequences) from the [Andersen lab](https://andersen-lab.com/)'s [HCoV-19-Genomics GitHub repo](https://github.com/andersen-lab/HCoV-19-Genomics). There are a *lot* of consensus sequences, each in a separate FASTA file, so `git clone` would be slow. Instead, we can download them and merge them into a single FASTA as follows:
 
 ```bash
 wget -O data/consensus_sequences_YYYY-MM-DD.fasta.gz "https://github.com/andersen-lab/HCoV-19-Genomics/releases/latest/download/consensus_sequences.fasta.gz"
