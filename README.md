@@ -15,13 +15,16 @@ I will be using [ViralMSA](https://github.com/niemasd/ViralMSA) ([Moshiri *et al
 
 ```bash
 # SARS-CoV-2
-gunzip -k data/consensus_sequences_*.fasta.gz
+gunzip -k data/sarscov2/consensus_sequences_*.fasta.gz
 ViralMSA.py -s data/sarscov2/consensus_sequences_*.fasta -r SARS-CoV-2 -e niemamoshiri@gmail.com -o data/sarscov2/viralmsa_out --omit_ref
 pigz -9 -p 8 data/sarscov2/viralmsa_out/*.aln data/sarscov2/viralmsa_out/*.sam
-rm data/consensus_sequences_*.fasta.gz
+rm data/sarscov2/consensus_sequences_*.fasta
 
 # Monkeypox
 ViralMSA.py -s data/monkeypox/complete_genomes_*.fasta -r Monkeypox -e niemamoshiri@gmail.com -o data/monkeypox/viralmsa_out --omit_ref
+pigz -9 -p 8 data/monkeypox/viralmsa_out/*.aln
+rm data/monkeypox/viralmsa_out/*.sam
+rm data/monkeypox/complete_genomes_*.fasta
 ```
 
 # Step 3: Conserved Regions
@@ -29,4 +32,5 @@ I wrote a [script (`conserved.py`)](scripts/conserved.py) to compute the maximum
 
 ```bash
 zcat data/sarscov2/viralmsa_out/*.aln.gz | ./scripts/conserved.py > data/sarscov2/conserved_2022-07-22.tsv
+zcat data/monkeypox/viralmsa_out/*.aln
 ```
