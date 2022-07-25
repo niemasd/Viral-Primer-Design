@@ -6,6 +6,7 @@ from math import log2
 from sys import stdin, stderr
 MAX_ENTROPY = 2
 NUM_SEQS_PROGRESS = 1000
+NUCS_SET = {'A','C','G','T'}
 
 if __name__ == "__main__":
     # count bases at each position
@@ -18,6 +19,8 @@ if __name__ == "__main__":
         if counts is None:
             counts = [dict() for _ in range(len(l))]
         for i, c in enumerate(l):
+            if c not in NUCS_SET:
+                continue
             if c not in counts[i]:
                 counts[i][c] = 0
             counts[i][c] += 1
