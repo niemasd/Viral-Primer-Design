@@ -32,5 +32,5 @@ I wrote a [script (`conserved.py`)](scripts/conserved.py) to compute the maximum
 
 ```bash
 zcat data/sarscov2/viralmsa_out/*.aln.gz | ./scripts/conserved.py > data/sarscov2/conserved_2022-07-22.tsv
-zcat data/monkeypox/viralmsa_out/*.aln
+zcat data/monkeypox/viralmsa_out/*.aln.gz | ./scripts/conserved.py > data/monkeypox/conserved_2022-07-25.tsv
 ```
