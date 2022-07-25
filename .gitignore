@@ -1,3 +1,17 @@
+# monkeypox sequence data (GISAID disallows sharing)
+data/monkeypox/*.fasta
+data/monkeypox/*.fasta.gz
+data/monkeypox/*.aln
+data/monkeypox/*.aln.gz
+data/monkeypox/*.sam
+data/monkeypox/*.sam.gz
+data/monkeypox/*/*.fasta
+data/monkeypox/*/*.fasta.gz
+data/monkeypox/*/*.aln
+data/monkeypox/*/*.aln.gz
+data/monkeypox/*/*.sam
+data/monkeypox/*/*.sam.gz
+
 # uncompressed FASTA/SAM
 *.fa
 *.fasta
