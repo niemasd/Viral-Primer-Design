@@ -29,7 +29,7 @@ if __name__ == "__main__":
     for i, curr in enumerate(counts):
         ent = MAX_ENTROPY
         if len(curr) != 0:
-            ent = 0; tot = sum(curr.values()); m = max(curr.values())
+            ent = 0; tot = sum(curr.values()); m = max(curr.values())/tot
             for c in curr:
                 p = curr[c]/tot
                 ent -= (p*log2(p))
