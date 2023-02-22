@@ -7,16 +7,26 @@ VERSION = '0.0.1'
 # imports
 from gzip import open as gopen
 from math import log2
+from matplotlib import rcParams
+from matplotlib.lines import Line2D
 from os import mkdir
 from os.path import abspath, expanduser, isdir, isfile
+from seaborn import set_context, set_style
 from sys import argv, stdin, stderr
 import argparse
+import matplotlib
+import matplotlib.pyplot as plt
 
 # constants
 DEFAULT_BUFSIZE = 1048576 # 1 MB
-MAX_ENTROPY = 2
-NUCS = {'A', 'C', 'G', 'T'}
+NUCS_SORT = ['A', 'C', 'G', 'T', '-']; NUCS = set(NUCS_SORT)
+NUC_COLORS = {'A':'red', 'C':'blue', 'G':'purple', 'T':'yellow', '-':'black'}
 NUM_SEQS_PROGRESS = 500
+
+# prep matplotlib/seaborn
+matplotlib.use("Agg")
+RC = {"font.size":12,"axes.titlesize":16,"axes.labelsize":14,"legend.fontsize":10,"xtick.labelsize":10,"ytick.labelsize":10}
+set_context("paper", rc=RC); set_style("ticks"); rcParams['font.family'] = 'serif'
 
 # helper class for logging
 class Log:
@@ -89,14 +99,12 @@ def count_bases(in_fn, logger=None):
     counts = None # counts[pos][nuc] = count
     for seq_ind, seq in enumerate(iter_fasta(in_fn)):
         if counts is None:
-            counts = [dict() for _ in range(len(seq))]
+            counts = [{c:0 for c in NUCS_SORT} for _ in range(len(seq))]
         elif len(seq) != len(counts):
             raise ValueError("MSA sequences have differing lengths: %s" % in_fn)
         for i, c in enumerate(seq):
             if c not in NUCS:
                 continue
-            if c not in counts[i]:
-                counts[i][c] = 0
             counts[i][c] += 1
         if logger is not None and (seq_ind+1) % NUM_SEQS_PROGRESS == 0:
             logger.write("Parsed %d sequences...\n" % (seq_ind+1))
@@ -108,7 +116,7 @@ def write_counts(counts, out_fn, delim='\t', logger=None):
         raise ValueError("File exists: %s" % out_fn)
     if logger is not None:
         logger.write("Writing base counts to file...\n")
-    out_f = open(out_fn, 'w'); NUCS_SORT = sorted(NUCS); out_f.write('Position (0-indexed)%s%s\n' % (delim, delim.join(NUCS_SORT)))
+    out_f = open(out_fn, 'w'); out_f.write('Position (0-indexed)%s%s\n' % (delim, delim.join(NUCS_SORT)))
     for i, curr in enumerate(counts):
         out_f.write('%d%s%s\n' % (i, delim, delim.join(str(curr[c]) if c in curr else '0' for c in NUCS_SORT)))
     out_f.close()
@@ -119,15 +127,13 @@ def write_counts(counts, out_fn, delim='\t', logger=None):
 def compute_entropies(counts, logger=None):
     if logger is not None:
         logger.write("Computing Shannon entropies...\n")
-    ents = [MAX_ENTROPY for _ in range(len(counts))] # ents[pos] = (max base freq, entropy)
+    ents = [None for _ in range(len(counts))] # ents[pos] = (max base freq, entropy)
     for i, curr in enumerate(counts):
-        ent = MAX_ENTROPY
-        if len(curr) != 0:
-            ent = 0; tot = sum(curr.values()); m = max(curr.values())/tot
-            for c in curr:
-                p = curr[c]/tot
-                ent -= (p*log2(p))
-            ents[i] = ent
+        ent = 0; tot = sum(curr.values()); m = max(curr.values())/tot
+        for c in curr:
+            if curr[c] != 0:
+                p = curr[c]/tot; ent -= (p*log2(p))
+        ents[i] = ent
     return ents
 
 # write Shannon entropies
@@ -151,6 +157,6 @@ if __name__ == "__main__":
     if not args.skip_alignment:
         args.sequences = align_mafft(args.sequences, '%s/sequences.aln' % args.outdir, logger=logger)
     counts = count_bases(args.sequences, logger=logger)
-    write_counts(counts, '%s/base_counts.tsv' % args.outdir, logger=logger)
+    write_counts(counts, '%s/counts.tsv' % args.outdir, logger=logger)
     ents = compute_entropies(counts, logger=logger)
     write_entropies(ents, '%s/entropies.tsv' % args.outdir, logger=logger)
