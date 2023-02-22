@@ -7,14 +7,11 @@ VERSION = '0.0.1'
 # imports
 from gzip import open as gopen
 from math import log2
-from matplotlib import rcParams
-from matplotlib.lines import Line2D
 from os import mkdir
 from os.path import abspath, expanduser, isdir, isfile
-from seaborn import set_context, set_style
+from seaborn import relplot
 from sys import argv, stdin, stderr
 import argparse
-import matplotlib
 import matplotlib.pyplot as plt
 
 # constants
@@ -22,11 +19,6 @@ DEFAULT_BUFSIZE = 1048576 # 1 MB
 NUCS_SORT = ['A', 'C', 'G', 'T', '-']; NUCS = set(NUCS_SORT)
 NUC_COLORS = {'A':'red', 'C':'blue', 'G':'purple', 'T':'yellow', '-':'black'}
 NUM_SEQS_PROGRESS = 500
-
-# prep matplotlib/seaborn
-matplotlib.use("Agg")
-RC = {"font.size":12,"axes.titlesize":16,"axes.labelsize":14,"legend.fontsize":10,"xtick.labelsize":10,"ytick.labelsize":10}
-set_context("paper", rc=RC); set_style("ticks"); rcParams['font.family'] = 'serif'
 
 # helper class for logging
 class Log:
@@ -149,6 +141,21 @@ def write_entropies(ents, out_fn, delim='\t', logger=None):
     if logger is not None:
         logger.write("Entropies written to: %s\n" % out_fn)
 
+# plot entropies
+def plot_entropies(ents, out_fn, logger=None):
+    if isfile(out_fn):
+        raise ValueError("File exists: %s" % out_fn)
+    if logger is not None:
+        logger.write("Plotting entropies...\n")
+    x = [i for i, e in enumerate(ents) if e is not None]
+    y = [e for i, e in enumerate(ents) if e is not None]
+    fig = relplot(x=x, y=y, kind='line')
+    plt.xlabel("Position (0-indexed)")
+    plt.ylabel("Shannon Entropy")
+    fig.savefig(out_fn, format='pdf', bbox_inches='tight')
+    if logger is not None:
+        logger.write("Entropy plot saved to: %s\n" % out_fn)
+
 # main program
 if __name__ == "__main__":
     args = parse_args(); mkdir(args.outdir); logger = Log('%s/log.txt' % args.outdir, quiet=args.quiet)
@@ -160,3 +167,4 @@ if __name__ == "__main__":
     write_counts(counts, '%s/counts.tsv' % args.outdir, logger=logger)
     ents = compute_entropies(counts, logger=logger)
     write_entropies(ents, '%s/entropies.tsv' % args.outdir, logger=logger)
+    plot_entropies(ents, '%s/entropies.pdf' % args.outdir, logger=logger)
