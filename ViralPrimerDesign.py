@@ -115,6 +115,16 @@ def write_counts(counts, out_fn, delim='\t', logger=None):
     if logger is not None:
         logger.write("Base counts written to: %s\n" % out_fn)
 
+# compute consensus sequence
+def compute_consensus(counts, out_fn, logger=None):
+    if logger is not None:
+        logger.write("Computing consensus sequence...\n")
+    seq = ''.join(c for count in counts for c in 'ACGT' if count[c] == max(count.values()))
+    out_f = open(out_fn, 'w'); out_f.write(seq); out_f.write('\n'); out_f.close()
+    if logger is not None:
+        logger.write("Consensus sequence written to: %s\n" % out_fn)
+    return seq
+
 # compute Shannon entorpy from MSA base counts
 def compute_entropies(counts, logger=None):
     if logger is not None:
@@ -165,6 +175,7 @@ if __name__ == "__main__":
         args.sequences = align_mafft(args.sequences, '%s/sequences.aln' % args.outdir, logger=logger)
     counts = count_bases(args.sequences, logger=logger)
     write_counts(counts, '%s/counts.tsv' % args.outdir, logger=logger)
+    consensus = compute_consensus(counts, '%s/consensus.txt' % args.outdir, logger=logger)
     ents = compute_entropies(counts, logger=logger)
     write_entropies(ents, '%s/entropies.tsv' % args.outdir, logger=logger)
     plot_entropies(ents, '%s/entropies.pdf' % args.outdir, logger=logger)
