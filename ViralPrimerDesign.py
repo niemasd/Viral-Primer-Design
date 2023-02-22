@@ -16,7 +16,27 @@ import argparse
 DEFAULT_BUFSIZE = 1048576 # 1 MB
 MAX_ENTROPY = 2
 NUCS = {'A', 'C', 'G', 'T'}
-NUM_SEQS_PROGRESS = 1000
+NUM_SEQS_PROGRESS = 500
+
+# helper class for logging
+class Log:
+    def __init__(self, loggern, quiet=False):
+        self.log_f = open(loggern, 'w')
+        if quiet:
+            self.ostream = None
+        else:
+            self.ostream = stderr
+    def __del__(self):
+        self.log_f.close()
+    def write(self, s):
+        self.log_f.write(s)
+        if self.ostream is not None:
+            self.ostream.write(s)
+        self.flush()
+    def flush(self):
+        self.log_f.flush()
+        if self.ostream is not None:
+            self.ostream.flush()
 
 # parse user args
 def parse_args():
@@ -29,6 +49,7 @@ def parse_args():
     parser.add_argument('-s', '--sequences', required=False, type=str, default='stdin', help="Input Sequences (FASTA format)")
     parser.add_argument('-o', '--outdir', required=True, type=str, help="Output Directory")
     parser.add_argument('--skip_alignment', action="store_true", help="Skip Alignment (if input FASTA is already aligned)")
+    parser.add_argument('-q', '--quiet', action="store_true", help="Quiet (hide verbose messages)")
     parser.add_argument('-v', '--version', action="store_true", help="Show Version Number")
     args = parser.parse_args()
 
@@ -62,7 +83,9 @@ def iter_fasta(in_fn):
     in_f.close()
 
 # count bases at each position of MSA
-def count_bases(in_fn, verbose=False):
+def count_bases(in_fn, logger=None):
+    if logger is not None:
+        logger.write("Counting bases from: %s\n" % in_fn)
     counts = None # counts[pos][nuc] = count
     for seq_ind, seq in enumerate(iter_fasta(in_fn)):
         if counts is None:
@@ -75,23 +98,28 @@ def count_bases(in_fn, verbose=False):
             if c not in counts[i]:
                 counts[i][c] = 0
             counts[i][c] += 1
-        if verbose and (seq_ind+1) % NUM_SEQS_PROGRESS == 0:
-            stderr.write("Parsed %d sequences...\n" % seq_ind); stderr.flush()
+        if logger is not None and (seq_ind+1) % NUM_SEQS_PROGRESS == 0:
+            logger.write("Parsed %d sequences...\n" % (seq_ind+1))
     return counts
 
 # write base counts
-def write_counts(counts, out_fn, delim='\t'):
+def write_counts(counts, out_fn, delim='\t', logger=None):
     if isfile(out_fn):
         raise ValueError("File exists: %s" % out_fn)
-    out_f = open(out_fn, 'w'); NUCS_SORT = sorted(NUCS)
-    out_f.write('Position (0-indexed)%s%s\n' % (delim, delim.join(NUCS_SORT)))
+    if logger is not None:
+        logger.write("Writing base counts to file...\n")
+    out_f = open(out_fn, 'w'); NUCS_SORT = sorted(NUCS); out_f.write('Position (0-indexed)%s%s\n' % (delim, delim.join(NUCS_SORT)))
     for i, curr in enumerate(counts):
         out_f.write('%d%s%s\n' % (i, delim, delim.join(str(curr[c]) if c in curr else '0' for c in NUCS_SORT)))
     out_f.close()
+    if logger is not None:
+        logger.write("Base counts written to: %s\n" % out_fn)
 
 # compute Shannon entorpy from MSA base counts
-def compute_entropy(counts, verbose=False):
-    ents = [(MAX_ENTROPY,0) for _ in range(len(counts))] # ents[pos] = (max base freq, entropy)
+def compute_entropies(counts, logger=None):
+    if logger is not None:
+        logger.write("Computing Shannon entropies...\n")
+    ents = [MAX_ENTROPY for _ in range(len(counts))] # ents[pos] = (max base freq, entropy)
     for i, curr in enumerate(counts):
         ent = MAX_ENTROPY
         if len(curr) != 0:
@@ -99,15 +127,30 @@ def compute_entropy(counts, verbose=False):
             for c in curr:
                 p = curr[c]/tot
                 ent -= (p*log2(p))
-            ents[i] = (ent,m)
+            ents[i] = ent
     return ents
+
+# write Shannon entropies
+def write_entropies(ents, out_fn, delim='\t', logger=None):
+    if isfile(out_fn):
+        raise ValueError("File exists: %s" % out_fn)
+    if logger is not None:
+        logger.write("Writing entropies to file...\n")
+    out_f = open(out_fn, 'w'); out_f.write('Position (0-indexed)%sEntropy\n' % delim)
+    for i, curr in enumerate(ents):
+        out_f.write('%d%s%s\n' % (i, delim, curr))
+    out_f.close()
+    if logger is not None:
+        logger.write("Entropies written to: %s\n" % out_fn)
 
 # main program
 if __name__ == "__main__":
-    args = parse_args()
-    mkdir(args.outdir)
+    args = parse_args(); mkdir(args.outdir); logger = Log('%s/log.txt' % args.outdir, quiet=args.quiet)
+    logger.write("=== ViralPrimerDesign v%s ===\n" % VERSION)
+    logger.write("Command: %s\n" % ' '.join(argv))
     if not args.skip_alignment:
-        args.sequences = align_mafft(args.sequences, '%s/sequences.aln' % args.outdir, verbose=True)
-    counts = count_bases(args.sequences, verbose=True)
-    write_counts(counts, '%s/base_counts.tsv' % args.outdir)
-    ents = compute_entropy(counts, verbose=True)
+        args.sequences = align_mafft(args.sequences, '%s/sequences.aln' % args.outdir, logger=logger)
+    counts = count_bases(args.sequences, logger=logger)
+    write_counts(counts, '%s/base_counts.tsv' % args.outdir, logger=logger)
+    ents = compute_entropies(counts, logger=logger)
+    write_entropies(ents, '%s/entropies.tsv' % args.outdir, logger=logger)
