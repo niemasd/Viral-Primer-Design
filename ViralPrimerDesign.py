@@ -5,6 +5,7 @@ Pipeline for designing primers from a collection of viral sequences
 VERSION = '0.0.1'
 
 # imports
+from datetime import datetime
 from gzip import open as gopen
 from math import log2
 from os import mkdir
@@ -23,6 +24,10 @@ NUC_COLORS = {'A':'red', 'C':'blue', 'G':'purple', 'T':'yellow', '-':'black'}
 NUCS_SORT = ['A', 'C', 'G', 'T', '-']; NUCS = set(NUCS_SORT)
 NUM_SEQS_PROGRESS = 500
 
+# return the current time as a string
+def get_time():
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 # helper class for logging
 class Log:
     def __init__(self, loggern, quiet=False):
@@ -33,7 +38,9 @@ class Log:
             self.ostream = stderr
     def __del__(self):
         self.log_f.close()
-    def write(self, s):
+    def write(self, s, include_time=True):
+        if include_time:
+            s = '[%s] %s' % (get_time(), s)
         self.log_f.write(s)
         if self.ostream is not None:
             self.ostream.write(s)
@@ -213,6 +220,19 @@ def plot_entropies(ents, out_fn, logger=None):
     if logger is not None:
         logger.write("Entropy plot saved to: %s\n" % out_fn)
 
+# design primers using Primer3
+def design_primers(consensus, primer3_input_fn, primer3_output_fn, logger=None):
+    if isfile(primer3_input_fn) or isdir(primer3_input_fn):
+        raise ValueError("Output exists: %s" % primer3_input_fn)
+    if logger is not None:
+        logger.write("Creating Primer3 input file: %s\n" % primer3_input_fn)
+    f = open(primer3_input_fn, 'w') # TODO
+    f.write("SEQUENCE_TEMPLATE=%s\n=\n" % consensus)
+    f.close()
+    if logger is not None:
+        logger.write("Running Primer3...\n")
+    o = open(primer3_output_fn, 'w'); call(['primer3_core', primer3_input_fn], stdout=o); o.close()
+
 # main program
 if __name__ == "__main__":
     args = parse_args(); mkdir(args.outdir); logger = Log('%s/log.txt' % args.outdir, quiet=args.quiet)
@@ -227,4 +247,5 @@ if __name__ == "__main__":
     ents = compute_entropies(counts, logger=logger)
     write_entropies(ents, '%s/entropies.tsv' % args.outdir, logger=logger)
     plot_entropies(ents, '%s/entropies.pdf' % args.outdir, logger=logger)
+    design_primers(consensus, '%s/primer3_input.txt' % args.outdir, '%s/primer3_output.txt' % args.outdir, logger=logger)
     # blastn example: https://bioinformatics.stackexchange.com/a/19796/1115
