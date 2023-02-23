@@ -26,5 +26,10 @@ RUN apt-get -qq update && apt-get -qq -y upgrade && \
     cd ../.. && \
     rm -rf primer3-* && \
 
+    # install BLAST+ v2.13.0
+    wget -qO- "https://ftp.ncbi.nlm.nih.gov/blast/executables/blast+/2.13.0/ncbi-blast-2.13.0+-x64-linux.tar.gz" | tar -zx && \
+    mv ncbi-blast-*/bin/* /usr/local/bin/ && \
+    rm -rf ncbi-blast-* && \
+
     # clean up
     rm -rf /tmp/*
