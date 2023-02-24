@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 DEFAULT_BUFSIZE = 1048576 # 1 MB
 MIN_MAFFT_OUTPUT_SIZE = 100
 MIN_MAFFT_VERSION = 7.467
+MIN_PRIMER3_OUTPUT_SIZE = 100
 NUC_COLORS = {'A':'red', 'C':'blue', 'G':'purple', 'T':'yellow', '-':'black'}
 NUCS_SORT = ['A', 'C', 'G', 'T', '-']; NUCS = set(NUCS_SORT)
 NUM_SEQS_PROGRESS = 500
@@ -30,8 +31,8 @@ def get_time():
 
 # helper class for logging
 class Log:
-    def __init__(self, loggern, quiet=False):
-        self.log_f = open(loggern, 'w')
+    def __init__(self, loggern, quiet=False, bufsize=DEFAULT_BUFSIZE):
+        self.log_f = open(loggern, 'w', buffering=bufsize)
         if quiet:
             self.ostream = None
         else:
@@ -63,6 +64,8 @@ def parse_args():
     parser.add_argument('-o', '--outdir', required=True, type=str, help="Output Directory")
     parser.add_argument('--skip_alignment', action="store_true", help="Skip Alignment (if input FASTA is already aligned)")
     parser.add_argument('-t', '--threads', required=False, type=int, default=1, help="Number of Threads (for MSA)")
+    parser.add_argument('-pw', '--primer3_window_size', required=False, type=int, default=1000, help="Primer3 Sliding Window Size")
+    parser.add_argument('-ps', '--primer3_step_size', required=False, type=int, default=500, help="Primer3 Sliding Window Step Size")
     parser.add_argument('-q', '--quiet', action="store_true", help="Quiet (hide verbose messages)")
     parser.add_argument('-v', '--version', action="store_true", help="Show Version Number")
     args = parser.parse_args()
@@ -77,10 +80,14 @@ def parse_args():
         raise ValueError("Output exists: %s" % args.outdir)
     if args.threads < 1:
         raise ValueError("Number of threads must be positive integer: %s" % args.threads)
+    if args.primer3_window_size < 1:
+        raise ValueError("Window size must be positive integer: %s" % args.primer3_window_size)
+    if args.primer3_step_size > args.primer3_window_size:
+        raise ValueError("Window step size must be <= window size: %s" % args.primer3_step_size)
     return args
 
 # align using MAFFT
-def align_mafft(in_fn, ref_fn, out_fn, threads=1, logger=None):
+def align_mafft(in_fn, ref_fn, out_fn, threads=1, logger=None, bufsize=DEFAULT_BUFSIZE):
     if in_fn.lower().endswith('.gz'):
         raise ValueError("MAFFT doesn't support gzipped input sequences: %s" % in_fn)
     try:
@@ -109,14 +116,14 @@ def align_mafft(in_fn, ref_fn, out_fn, threads=1, logger=None):
         command += [in_fn, ref_fn]
         if logger is not None:
             logger.write("MAFFT command: %s\n" % ' '.join(command))
-        o = open(out_fn, 'w'); e = open(e_fn, 'w'); call(command, stdout=o, stderr=e); o.close(); e.close()
+        o = open(out_fn, 'w', buffering=bufsize); e = open(e_fn, 'w', buffering=bufsize); call(command, stdout=o, stderr=e); o.close(); e.close()
     if getsize(out_fn) < MIN_MAFFT_OUTPUT_SIZE:
         raise ValueError("MAFFT crashed. See log: %s" % e_fn)
     if logger is not None:
         logger.write("Multiple sequence alignment written to: %s\n" % out_fn)
 
 # iterate over sequences of FASTA
-def iter_fasta(in_fn):
+def iter_fasta(in_fn, bufsize=DEFAULT_BUFSIZE):
     if in_fn == 'stdin':
         in_f = stdin
     elif not in_fn.startswith('/dev/fd/') and not isfile(in_fn):
@@ -124,7 +131,7 @@ def iter_fasta(in_fn):
     elif in_fn.lower().endswith('.gz'):
         in_f = gopen(in_fn, 'rt')
     else:
-        in_f = open(in_fn, 'r', buffering=DEFAULT_BUFSIZE)
+        in_f = open(in_fn, 'r', buffering=bufsize)
     seq = None
     for line in in_f:
         l = line.strip()
@@ -157,24 +164,24 @@ def count_bases(in_fn, logger=None):
     return counts
 
 # write base counts
-def write_counts(counts, out_fn, delim='\t', logger=None):
+def write_counts(counts, out_fn, delim='\t', logger=None, bufsize=DEFAULT_BUFSIZE):
     if isfile(out_fn) or isdir(out_fn):
         raise ValueError("Output exists: %s" % out_fn)
     if logger is not None:
         logger.write("Writing base counts to file...\n")
-    out_f = open(out_fn, 'w'); out_f.write('Position (0-indexed)%s%s\n' % (delim, delim.join(NUCS_SORT)))
+    out_f = open(out_fn, 'w', buffering=bufsize); out_f.write('Position (1-indexed)%s%s\n' % (delim, delim.join(NUCS_SORT)))
     for i, curr in enumerate(counts):
-        out_f.write('%d%s%s\n' % (i, delim, delim.join(str(curr[c]) if c in curr else '0' for c in NUCS_SORT)))
+        out_f.write('%d%s%s\n' % (i+1, delim, delim.join(str(curr[c]) if c in curr else '0' for c in NUCS_SORT)))
     out_f.close()
     if logger is not None:
         logger.write("Base counts written to: %s\n" % out_fn)
 
 # compute consensus sequence
-def compute_consensus(counts, out_fn, logger=None):
+def compute_consensus(counts, out_fn, logger=None, bufsize=DEFAULT_BUFSIZE):
     if logger is not None:
         logger.write("Computing consensus sequence...\n")
     seq = ''.join(c for count in counts for c in 'ACGT' if count[c] == max(count.values()))
-    out_f = open(out_fn, 'w'); out_f.write('>Consensus - ViralPrimerDesign v%s\n%s\n' % (VERSION, seq)); out_f.close()
+    out_f = open(out_fn, 'w', buffering=bufsize); out_f.write('>Consensus - ViralPrimerDesign v%s\n%s\n' % (VERSION, seq)); out_f.close()
     if logger is not None:
         logger.write("Consensus sequence written to: %s\n" % out_fn)
     return seq
@@ -193,14 +200,14 @@ def compute_entropies(counts, logger=None):
     return ents
 
 # write Shannon entropies
-def write_entropies(ents, out_fn, delim='\t', logger=None):
+def write_entropies(ents, out_fn, delim='\t', logger=None, bufsize=DEFAULT_BUFSIZE):
     if isfile(out_fn) or isdir(out_fn):
         raise ValueError("Output exists: %s" % out_fn)
     if logger is not None:
         logger.write("Writing entropies to file...\n")
-    out_f = open(out_fn, 'w'); out_f.write('Position (0-indexed)%sEntropy\n' % delim)
+    out_f = open(out_fn, 'w', buffering=bufsize); out_f.write('Position (1-indexed)%sEntropy\n' % delim)
     for i, curr in enumerate(ents):
-        out_f.write('%d%s%s\n' % (i, delim, curr))
+        out_f.write('%d%s%s\n' % (i+1, delim, curr))
     out_f.close()
     if logger is not None:
         logger.write("Entropies written to: %s\n" % out_fn)
@@ -211,27 +218,49 @@ def plot_entropies(ents, out_fn, logger=None):
         raise ValueError("Output exists: %s" % out_fn)
     if logger is not None:
         logger.write("Plotting entropies...\n")
-    x = [i for i, e in enumerate(ents) if e is not None]
+    x = [i+1 for i, e in enumerate(ents) if e is not None]
     y = [e for i, e in enumerate(ents) if e is not None]
     fig = relplot(x=x, y=y, kind='line')
-    plt.xlabel("Position (0-indexed)")
+    plt.xlabel("Position (1-indexed)")
     plt.ylabel("Shannon Entropy")
     fig.savefig(out_fn, format='pdf', bbox_inches='tight')
     if logger is not None:
         logger.write("Entropy plot saved to: %s\n" % out_fn)
 
 # design primers using Primer3
-def design_primers(consensus, primer3_input_fn, primer3_output_fn, logger=None):
+def design_primers(consensus, primer3_input_fn, primer3_output_fn, window_size=1000, step_size=500, logger=None, bufsize=DEFAULT_BUFSIZE):
+    # run Primer3
     if isfile(primer3_input_fn) or isdir(primer3_input_fn):
         raise ValueError("Output exists: %s" % primer3_input_fn)
     if logger is not None:
         logger.write("Creating Primer3 input file: %s\n" % primer3_input_fn)
-    f = open(primer3_input_fn, 'w') # TODO
-    f.write("SEQUENCE_TEMPLATE=%s\n=\n" % consensus)
+    f = open(primer3_input_fn, 'w', buffering=bufsize); num_windows = 0
+    for start in range(0, len(consensus)-step_size, step_size):
+        f.write("SEQUENCE_ID=%d_%d\n" % (start+1, min(start+window_size,len(consensus))))
+        f.write("SEQUENCE_TEMPLATE=%s\n=\n" % consensus[start:start+window_size])
+        num_windows += 1
     f.close()
     if logger is not None:
         logger.write("Running Primer3...\n")
-    o = open(primer3_output_fn, 'w'); call(['primer3_core', primer3_input_fn], stdout=o); o.close()
+    o = open(primer3_output_fn, 'w', buffering=bufsize); call(['primer3_core', primer3_input_fn], stdout=o); o.close()
+    if getsize(primer3_output_fn) < MIN_PRIMER3_OUTPUT_SIZE:
+        raise ValueError("Primer3 crashed")
+    if logger is not None:
+        logger.write("Primer3 output written to: %s\n" % primer3_output_fn)
+
+    # parse Primer3 output and return
+    primers = dict() # primers[(left_start, left_len, right_start, right_len)] = dict storing info about that primer pair
+    for entry in open(primer3_output_fn, buffering=bufsize).read().rstrip().rstrip('=').split('\n=\n'):
+        data = {k.strip():v.strip() for k,v in [l.split('=') for l in entry.splitlines()]}
+        num_primers = int(data['PRIMER_PAIR_NUM_RETURNED'])
+        for primer_ind in range(num_primers):
+            primer_left_ind, primer_left_len = [int(v) for v in data['PRIMER_LEFT_%d' % primer_ind].split(',')]
+            primer_right_ind, primer_right_len = [int(v) for v in data['PRIMER_RIGHT_%d' % primer_ind].split(',')]
+            primers_key = (primer_left_ind, primer_left_len, primer_right_ind, primer_right_len)
+            tmp = '_%d_' % primer_ind
+            if primers_key not in primers:
+                primers[primers_key] = {k.replace(tmp, '_'): data[k] for k in data if tmp in k}
+    return primers
 
 # main program
 if __name__ == "__main__":
@@ -247,5 +276,7 @@ if __name__ == "__main__":
     ents = compute_entropies(counts, logger=logger)
     write_entropies(ents, '%s/entropies.tsv' % args.outdir, logger=logger)
     plot_entropies(ents, '%s/entropies.pdf' % args.outdir, logger=logger)
-    design_primers(consensus, '%s/primer3_input.txt' % args.outdir, '%s/primer3_output.txt' % args.outdir, logger=logger)
+    primers = design_primers(consensus, '%s/primer3_input.txt' % args.outdir, '%s/primer3_output.txt' % args.outdir, window_size=args.primer3_window_size, step_size=args.primer3_step_size, logger=logger)
+    primer_seqs = {curr[k] for curr in primers.values() for k in curr if k.endswith('_SEQUENCE')}
+    print(len(primer_seqs))
     # blastn example: https://bioinformatics.stackexchange.com/a/19796/1115
