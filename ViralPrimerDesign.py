@@ -262,6 +262,19 @@ def design_primers(consensus, primer3_input_fn, primer3_output_fn, window_size=1
                 primers[primers_key] = {k.replace(tmp, '_'): data[k] for k in data if tmp in k}
     return primers
 
+# blast all unique primer sequences
+def blast_primer_seqs(primer_seqs, unique_primer_fn, logger=None, bufsize=DEFAULT_BUFSIZE):
+    # write FASTA file containing unique primers
+    if isfile(unique_primer_fn) or isdir(unique_primer_fn):
+        raise ValueError("Output exists: %s" % unique_primer_fn)
+    if logger is not None:
+        logger.write("Creating unique primer FASTA file: %s\n" % unique_primer_fn)
+    f = open(unique_primer_fn, 'w', buffering=bufsize)
+    for seq in primer_seqs:
+        f.write(">%s\n%s\n" % (seq, seq))
+    f.close()
+    exit(1) # TODO CONTINUE HERE
+
 # main program
 if __name__ == "__main__":
     args = parse_args(); mkdir(args.outdir); logger = Log('%s/log.txt' % args.outdir, quiet=args.quiet)
@@ -278,5 +291,9 @@ if __name__ == "__main__":
     plot_entropies(ents, '%s/entropies.pdf' % args.outdir, logger=logger)
     primers = design_primers(consensus, '%s/primer3_input.txt' % args.outdir, '%s/primer3_output.txt' % args.outdir, window_size=args.primer3_window_size, step_size=args.primer3_step_size, logger=logger)
     primer_seqs = {curr[k] for curr in primers.values() for k in curr if k.endswith('_SEQUENCE')}
-    print(len(primer_seqs))
+    blast_results = blast_primer_seqs(primer_seqs, '%s/unique_primers.fas' % args.outdir, logger=logger)
+    #print(len(primer_seqs))
+    #print(list(primers.keys())[0])
+    #print(primers[list(primers.keys())[0]])
+    #print(list(primer_seqs)[0])
     # blastn example: https://bioinformatics.stackexchange.com/a/19796/1115
