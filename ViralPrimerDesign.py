@@ -17,13 +17,20 @@ import argparse
 import matplotlib.pyplot as plt
 
 # constants
-DEFAULT_BUFSIZE = 1048576 # 1 MB
 MIN_MAFFT_OUTPUT_SIZE = 100
 MIN_MAFFT_VERSION = 7.467
 MIN_PRIMER3_OUTPUT_SIZE = 100
 NUC_COLORS = {'A':'red', 'C':'blue', 'G':'purple', 'T':'yellow', '-':'black'}
 NUCS_SORT = ['A', 'C', 'G', 'T', '-']; NUCS = set(NUCS_SORT)
 NUM_SEQS_PROGRESS = 500
+
+# defaults
+DEFAULT_BUFSIZE = 1048576 # 1 MB
+DEFAULT_PRIMER3_PRIMER_MAX_SIZE = 36
+DEFAULT_PRIMER3_PRIMER_MIN_SIZE = 18
+DEFAULT_PRIMER3_PRIMER_OPT_SIZE = 20
+DEFAULT_PRIMER3_STEP_SIZE = 500
+DEFAULT_PRIMER3_WINDOW_SIZE = 1000
 
 # return the current time as a string
 def get_time():
@@ -64,8 +71,11 @@ def parse_args():
     parser.add_argument('-o', '--outdir', required=True, type=str, help="Output Directory")
     parser.add_argument('--skip_alignment', action="store_true", help="Skip Alignment (if input FASTA is already aligned)")
     parser.add_argument('-t', '--threads', required=False, type=int, default=1, help="Number of Threads (for MSA)")
-    parser.add_argument('-pw', '--primer3_window_size', required=False, type=int, default=1000, help="Primer3 Sliding Window Size")
-    parser.add_argument('-ps', '--primer3_step_size', required=False, type=int, default=500, help="Primer3 Sliding Window Step Size")
+    parser.add_argument('--primer3_window_size', required=False, type=int, default=DEFAULT_PRIMER3_WINDOW_SIZE, help="Primer3 Sliding Window Size")
+    parser.add_argument('--primer3_step_size', required=False, type=int, default=DEFAULT_PRIMER3_STEP_SIZE, help="Primer3 Sliding Window Step Size")
+    parser.add_argument('--primer3_primer_opt_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_OPT_SIZE, help="Primer3 Optimal Primer Length (PRIMER_OPT_SIZE)")
+    parser.add_argument('--primer3_primer_min_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_MIN_SIZE, help="Primer3 Minimum Primer Length (PRIMER_MIN_SIZE)")
+    parser.add_argument('--primer3_primer_max_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_MAX_SIZE, help="Primer3 Maximum Primer Length (PRIMER_MAX_SIZE)")
     parser.add_argument('-q', '--quiet', action="store_true", help="Quiet (hide verbose messages)")
     parser.add_argument('-v', '--version', action="store_true", help="Show Version Number")
     args = parser.parse_args()
@@ -84,6 +94,12 @@ def parse_args():
         raise ValueError("Window size must be positive integer: %s" % args.primer3_window_size)
     if args.primer3_step_size > args.primer3_window_size:
         raise ValueError("Window step size must be <= window size: %s" % args.primer3_step_size)
+    if args.primer3_primer_opt_size < 1:
+        raise ValueError("Optimal primer length must be positive integer: %s" % args.primer3_primer_opt_size)
+    if args.primer3_primer_min_size > args.primer3_primer_opt_size:
+        raise ValueError("Minimum primer length must be at most optimal primer length: %s" % args.primer3_primer_min_size)
+    if args.primer3_primer_max_size < args.primer3_primer_opt_size:
+        raise ValueError("Maximum primer length must be at least optimal primer length: %s" % args.primer3_primer_max_size)
     return args
 
 # align using MAFFT
@@ -227,8 +243,12 @@ def plot_entropies(ents, out_fn, logger=None):
     if logger is not None:
         logger.write("Entropy plot saved to: %s\n" % out_fn)
 
-# design primers using Primer3
-def design_primers(consensus, primer3_input_fn, primer3_output_fn, window_size=1000, step_size=500, logger=None, bufsize=DEFAULT_BUFSIZE):
+# design primers using Primer3: https://primer3.org/manual.html
+def design_primers(
+    consensus, primer3_input_fn, primer3_output_fn, logger=None, bufsize=DEFAULT_BUFSIZE,
+    window_size=DEFAULT_PRIMER3_WINDOW_SIZE, step_size=DEFAULT_PRIMER3_STEP_SIZE,
+    primer_opt_size=DEFAULT_PRIMER3_PRIMER_OPT_SIZE, primer_min_size=DEFAULT_PRIMER3_PRIMER_MIN_SIZE, primer_max_size=DEFAULT_PRIMER3_PRIMER_MAX_SIZE,
+):
     # run Primer3
     if isfile(primer3_input_fn) or isdir(primer3_input_fn):
         raise ValueError("Output exists: %s" % primer3_input_fn)
@@ -237,7 +257,15 @@ def design_primers(consensus, primer3_input_fn, primer3_output_fn, window_size=1
     f = open(primer3_input_fn, 'w', buffering=bufsize); num_windows = 0
     for start in range(0, len(consensus)-step_size, step_size):
         f.write("SEQUENCE_ID=%d_%d\n" % (start+1, min(start+window_size,len(consensus))))
-        f.write("SEQUENCE_TEMPLATE=%s\n=\n" % consensus[start:start+window_size])
+        f.write("SEQUENCE_TEMPLATE=%s\n" % consensus[start:start+window_size])
+        f.write("PRIMER_TASK=generic\n")
+        f.write("PRIMER_PICK_LEFT_PRIMER=1\n")
+        f.write("PRIMER_PICK_INTERNAL_OLIGO=1\n")
+        f.write("PRIMER_PICK_RIGHT_PRIMER=1\n")
+        f.write("PRIMER_OPT_SIZE=%d\n" % primer_opt_size)
+        f.write("PRIMER_MIN_SIZE=%d\n" % primer_min_size)
+        f.write("PRIMER_MAX_SIZE=%d\n" % primer_max_size)
+        f.write("=\n")
         num_windows += 1
     f.close()
     if logger is not None:
@@ -289,11 +317,15 @@ if __name__ == "__main__":
     ents = compute_entropies(counts, logger=logger)
     write_entropies(ents, '%s/entropies.tsv' % args.outdir, logger=logger)
     plot_entropies(ents, '%s/entropies.pdf' % args.outdir, logger=logger)
-    primers = design_primers(consensus, '%s/primer3_input.txt' % args.outdir, '%s/primer3_output.txt' % args.outdir, window_size=args.primer3_window_size, step_size=args.primer3_step_size, logger=logger)
+    primers = design_primers(
+        consensus, '%s/primer3_input.txt' % args.outdir, '%s/primer3_output.txt' % args.outdir, logger=logger,
+        window_size=args.primer3_window_size, step_size=args.primer3_step_size,
+        primer_opt_size=args.primer3_primer_opt_size, primer_min_size=args.primer3_primer_min_size, primer_max_size=args.primer3_primer_max_size,
+    )
     primer_seqs = {curr[k] for curr in primers.values() for k in curr if k.endswith('_SEQUENCE')}
     blast_results = blast_primer_seqs(primer_seqs, '%s/unique_primers.fas' % args.outdir, logger=logger)
     #print(len(primer_seqs))
     #print(list(primers.keys())[0])
-    #print(primers[list(primers.keys())[0]])
+    print(primers[list(primers.keys())[0]])
     #print(list(primer_seqs)[0])
     # blastn example: https://bioinformatics.stackexchange.com/a/19796/1115
