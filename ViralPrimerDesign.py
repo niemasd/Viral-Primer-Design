@@ -25,6 +25,7 @@ NUCS_SORT = ['A', 'C', 'G', 'T', '-']; NUCS = set(NUCS_SORT)
 NUM_SEQS_PROGRESS = 500
 
 # defaults
+DEFAULT_BLAST_WORD_SIZE = 11
 DEFAULT_BUFSIZE = 1048576 # 1 MB
 DEFAULT_PRIMER3_PRIMER_MAX_SIZE = 36
 DEFAULT_PRIMER3_PRIMER_MIN_SIZE = 18
@@ -80,6 +81,7 @@ def parse_args():
     parser.add_argument('--primer3_primer_max_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_MAX_SIZE, help="Primer3 Maximum Primer Length (PRIMER_MAX_SIZE)")
     parser.add_argument('--primer3_primer_product_min_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_PRODUCT_MIN_SIZE, help="Primer3 Minimum Primer Product Length (left part of PRIMER_PRODUCT_SIZE_RANGE)")
     parser.add_argument('--primer3_primer_product_max_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_PRODUCT_MAX_SIZE, help="Primer3 Maximum Primer Product Length (right part of PRIMER_PRODUCT_SIZE_RANGE)")
+    parser.add_argument('--blast_word_size', required=False, type=int, default=DEFAULT_BLAST_WORD_SIZE, help="BLAST Word Size")
     parser.add_argument('-q', '--quiet', action="store_true", help="Quiet (hide verbose messages)")
     parser.add_argument('-v', '--version', action="store_true", help="Show Version Number")
     args = parser.parse_args()
@@ -108,6 +110,8 @@ def parse_args():
         raise ValueError("Minimum primer product length must be greater than maximum primer length: %s" % args.primer3_primer_product_min_size)
     if args.primer3_primer_product_max_size < args.primer3_primer_product_min_size:
         raise ValueError("Maximum primer product length must be at least minimum primer product length: %s" % args.primer3_primer_product_max_size)
+    if args.blast_word_size < 4:
+        raise ValueError("BLAST word size must be at least 4: %s" % args.blast_word_size)
     return args
 
 # align using MAFFT
@@ -300,21 +304,29 @@ def design_primers(
                 primers[primers_key] = {k.replace(tmp, '_'): data[k] for k in data if tmp in k}
     return primers
 
-# blast all unique primer sequences
-def blast_primer_seqs(primer_seqs, unique_primer_fn, logger=None, bufsize=DEFAULT_BUFSIZE):
-    # write FASTA file containing unique primers
+# write unique primers to FASTA file
+def write_unique_primers(primers, unique_primer_fn, logger=None, bufsize=DEFAULT_BUFSIZE):
     if isfile(unique_primer_fn) or isdir(unique_primer_fn):
         raise ValueError("Output exists: %s" % unique_primer_fn)
     if logger is not None:
-        logger.write("Creating unique primer FASTA file: %s\n" % unique_primer_fn)
+        logger.write("Generating unique primers...\n")
+    primer_seqs = {curr[k] for curr in primers.values() for k in curr if k.endswith('_SEQUENCE')}
+    if logger is not None:
+        logger.write("Writing unique primers to FASTA file: %s\n" % unique_primer_fn)
     f = open(unique_primer_fn, 'w', buffering=bufsize)
     for seq in primer_seqs:
         f.write(">%s\n%s\n" % (seq, seq))
     f.close()
-    exit(1) # TODO CONTINUE HERE
+
+# blast all unique primer sequences
+def blast_primer_seqs(unique_primer_fn, out_fn, word_size=DEFAULT_BLAST_WORD_SIZE, logger=None, bufsize=DEFAULT_BUFSIZE):
+    command = ['blastn', '-query', unique_primer_fn, '-db', 'nt', '-remote', '-word_size', str(word_size), '-out', out_fn, '-outfmt', '6']# sallseqid sallacc evalue bitscore score pident']
+    if logger is not None:
+        logger.write("BLAST Command: %s\n" % ' '.join(command))
+    e_fn = '%s/blastn.log' % '/'.join(out_fn.split('/')[:-1]); e = open(e_fn, 'w'); call(command, stderr=e); e.close()
 
 # main program
-if __name__ == "__main__":
+def main():
     args = parse_args(); mkdir(args.outdir); logger = Log('%s/log.txt' % args.outdir, quiet=args.quiet)
     logger.write("=== ViralPrimerDesign v%s ===\n" % VERSION)
     logger.write("Command: %s\n" % ' '.join(argv))
@@ -333,10 +345,15 @@ if __name__ == "__main__":
         primer_opt_size=args.primer3_primer_opt_size, primer_min_size=args.primer3_primer_min_size, primer_max_size=args.primer3_primer_max_size,
         primer_product_min_size=args.primer3_primer_product_min_size, primer_product_max_size=args.primer3_primer_product_max_size,
     )
-    primer_seqs = {curr[k] for curr in primers.values() for k in curr if k.endswith('_SEQUENCE')}
-    blast_results = blast_primer_seqs(primer_seqs, '%s/unique_primers.fas' % args.outdir, logger=logger)
+    unique_primer_fn = '%s/unique_primers.fas' % args.outdir
+    write_unique_primers(primers, unique_primer_fn, logger=logger)
+    blast_results = blast_primer_seqs(unique_primer_fn, '%s/blastn.tsv' % args.outdir, word_size=args.blast_word_size, logger=logger)
     #print(len(primer_seqs))
     #print(list(primers.keys())[0])
-    print(primers[list(primers.keys())[0]])
+    #print(primers[list(primers.keys())[0]])
     #print(list(primer_seqs)[0])
     # blastn example: https://bioinformatics.stackexchange.com/a/19796/1115
+
+# run from CLI
+if __name__ == "__main__":
+    main()
