@@ -29,6 +29,8 @@ DEFAULT_BUFSIZE = 1048576 # 1 MB
 DEFAULT_PRIMER3_PRIMER_MAX_SIZE = 36
 DEFAULT_PRIMER3_PRIMER_MIN_SIZE = 18
 DEFAULT_PRIMER3_PRIMER_OPT_SIZE = 20
+DEFAULT_PRIMER3_PRIMER_PRODUCT_MIN_SIZE = 50
+DEFAULT_PRIMER3_PRIMER_PRODUCT_MAX_SIZE = 170
 DEFAULT_PRIMER3_STEP_SIZE = 500
 DEFAULT_PRIMER3_WINDOW_SIZE = 1000
 
@@ -76,6 +78,8 @@ def parse_args():
     parser.add_argument('--primer3_primer_opt_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_OPT_SIZE, help="Primer3 Optimal Primer Length (PRIMER_OPT_SIZE)")
     parser.add_argument('--primer3_primer_min_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_MIN_SIZE, help="Primer3 Minimum Primer Length (PRIMER_MIN_SIZE)")
     parser.add_argument('--primer3_primer_max_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_MAX_SIZE, help="Primer3 Maximum Primer Length (PRIMER_MAX_SIZE)")
+    parser.add_argument('--primer3_primer_product_min_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_PRODUCT_MIN_SIZE, help="Primer3 Minimum Primer Product Length (left part of PRIMER_PRODUCT_SIZE_RANGE)")
+    parser.add_argument('--primer3_primer_product_max_size', required=False, type=int, default=DEFAULT_PRIMER3_PRIMER_PRODUCT_MAX_SIZE, help="Primer3 Maximum Primer Product Length (right part of PRIMER_PRODUCT_SIZE_RANGE)")
     parser.add_argument('-q', '--quiet', action="store_true", help="Quiet (hide verbose messages)")
     parser.add_argument('-v', '--version', action="store_true", help="Show Version Number")
     args = parser.parse_args()
@@ -100,6 +104,10 @@ def parse_args():
         raise ValueError("Minimum primer length must be at most optimal primer length: %s" % args.primer3_primer_min_size)
     if args.primer3_primer_max_size < args.primer3_primer_opt_size:
         raise ValueError("Maximum primer length must be at least optimal primer length: %s" % args.primer3_primer_max_size)
+    if args.primer3_primer_product_min_size <= args.primer3_primer_max_size:
+        raise ValueError("Minimum primer product length must be greater than maximum primer length: %s" % args.primer3_primer_product_min_size)
+    if args.primer3_primer_product_max_size < args.primer3_primer_product_min_size:
+        raise ValueError("Maximum primer product length must be at least minimum primer product length: %s" % args.primer3_primer_product_max_size)
     return args
 
 # align using MAFFT
@@ -248,6 +256,7 @@ def design_primers(
     consensus, primer3_input_fn, primer3_output_fn, logger=None, bufsize=DEFAULT_BUFSIZE,
     window_size=DEFAULT_PRIMER3_WINDOW_SIZE, step_size=DEFAULT_PRIMER3_STEP_SIZE,
     primer_opt_size=DEFAULT_PRIMER3_PRIMER_OPT_SIZE, primer_min_size=DEFAULT_PRIMER3_PRIMER_MIN_SIZE, primer_max_size=DEFAULT_PRIMER3_PRIMER_MAX_SIZE,
+    primer_product_min_size=DEFAULT_PRIMER3_PRIMER_PRODUCT_MIN_SIZE, primer_product_max_size=DEFAULT_PRIMER3_PRIMER_PRODUCT_MAX_SIZE,
 ):
     # run Primer3
     if isfile(primer3_input_fn) or isdir(primer3_input_fn):
@@ -265,6 +274,7 @@ def design_primers(
         f.write("PRIMER_OPT_SIZE=%d\n" % primer_opt_size)
         f.write("PRIMER_MIN_SIZE=%d\n" % primer_min_size)
         f.write("PRIMER_MAX_SIZE=%d\n" % primer_max_size)
+        f.write("PRIMER_PRODUCT_SIZE_RANGE=%d-%d\n" % (primer_product_min_size, primer_product_max_size))
         f.write("=\n")
         num_windows += 1
     f.close()
@@ -321,6 +331,7 @@ if __name__ == "__main__":
         consensus, '%s/primer3_input.txt' % args.outdir, '%s/primer3_output.txt' % args.outdir, logger=logger,
         window_size=args.primer3_window_size, step_size=args.primer3_step_size,
         primer_opt_size=args.primer3_primer_opt_size, primer_min_size=args.primer3_primer_min_size, primer_max_size=args.primer3_primer_max_size,
+        primer_product_min_size=args.primer3_primer_product_min_size, primer_product_max_size=args.primer3_primer_product_max_size,
     )
     primer_seqs = {curr[k] for curr in primers.values() for k in curr if k.endswith('_SEQUENCE')}
     blast_results = blast_primer_seqs(primer_seqs, '%s/unique_primers.fas' % args.outdir, logger=logger)
